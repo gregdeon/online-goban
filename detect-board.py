@@ -8,7 +8,8 @@ from mpl_toolkits.mplot3d import Axes3D
 from board_kernels import *
 
 # Global: set to False to disable debug images
-debug = True
+debug = False
+# debug = True
 
 # Taken from Dan's helpers
 def imshow(title, img):
@@ -199,51 +200,7 @@ def findAverageColourPoint(img, x, y, radius):
     
     return cv2.mean(roi, mask=mask)
     
-    
-def findAverageColours(img):
-    img_output = np.full((380, 380, 3), 255, np.uint8)
-    
-    for ix in range(19):
-        for iy in range(19):
-            x = 10 + 20*ix
-            y = 10 + 20*iy
-            
-            colour = findAverageColourPoint(img, x, y-2, 3)
-            cv2.circle(img_output, (x, y), 7, colour, -1)
-            cv2.circle(img_output, (x, y), 7, (0, 0, 0), 1)
-    
-    return img_output
-    
-def findEdges(img_board):
-    # Test edge detector
-    kernel_edges = np.array([
-        [-1, 0, -1],
-        [ 0, 4,  0],
-        [-1, 0, -1]
-    ])    
-    
-    kernel_deriv2 = np.array([
-        [-1,  0,   0, 0, 0],
-        [ 0, 16,   0, 0, 0],
-        [ 0,  0, -30, 0, 0],
-        [ 0,  0,   0, 16, 0],
-        [ 0,  0,   0, 0, -1]
-    ])
-        
-    #kernel_edges = np.array([
-    #    [-1, -1, -1, -1, -1],
-    #    [-1, -1, -1, -1, -1],
-    #    [-1,  0 , 24, -1, -1],
-    #    [-1, -1, -1, -1, -1],
-    #    [-1, -1, -1, -1, -1]
-    #])
-    x = y = 0
-    roi = img_board[y:y+20, x:x+20]
-    img_deriv = cv2.cvtColor(corrected, cv2.COLOR_BGR2GRAY).astype(np.float32)
-    img_edges = cv2.filter2D(img_deriv, -1, kernel_deriv2)
-    _, thresh_edges = cv2.threshold(img_edges, 600, 255, cv2.THRESH_BINARY)
-    imshow("Edge detected", thresh_edges)
-    
+# Might be helpful for making figures later  
 def scatterColors(img):
     scale_down = 3
     img = img[::scale_down, ::scale_down]
@@ -287,126 +244,11 @@ def scatterColors(img):
     ax.set_zlabel('V')
 
     plt.show()
-   
-def detectIntersection(img, x, y):
-    # Detect whether a position on the image is black stone/white stone/empty
-    if x < 0 or x >= 19:
-        raise ValueError("Expected x in range [0, 18]; got %s" % x)
-      
-    if y < 0 or y >= 19:
-        raise ValueError("Expected y in range [0, 18]; got %s" % y)
-    
-    (roi_x, roi_y) = (x*20, y*20)
-    (roi_w, roi_h) = (20, 20)
-    roi = img[roi_y:roi_y+roi_h, roi_x:roi_x+roi_w]
-    roi_bw = cv2.cvtColor(roi, cv2.COLOR_RGB2GRAY)
-    _, roi_thresh = cv2.threshold(roi_bw, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)    
-    
-    # new plan
-    kernels = getKernels(len(roi))
-    """
-    kernel_intersection = np.array([
-        [-3, -2, -1, 0, 1, 0, -1, -2, -3],
-        [-2, -1,  0, 0, 1, 0,  0, -1, -2],
-        [-1,  0,  0, 0, 1, 0,  0,  0, -1],
-        [ 0,  0,  0, 0, 1, 0,  0,  0,  0],
-        [ 1,  1,  1, 1, 2, 1,  1,  1,  1],
-        [ 0,  0,  0, 0, 1, 0,  0,  0,  0],
-        [-1,  0,  0, 0, 1, 0,  0,  0, -1],
-        [-2, -1,  0, 0, 1, 0,  0, -1, -2],
-        [-3, -2, -1, 0, 1, 0, -1, -2, -3],
-    ])
-    """
-    """
-    kernel_intersection = np.array([
-        [-2, 0, 0, 0, 0, 0, -2],
-        [ 0, 0, 0, 0, 0, 0,  0],
-        [ 0, 0, 0, 0, 0, 0,  0],
-        [ 0, 0, 0, 2, 0, 0,  0],
-        [ 0, 0, 0, 0, 0, 0,  0],
-        [ 0, 0, 0, 0, 0, 0,  0],
-        [-2, 0, 0, 0, 0, 0, -2]
-    ])
-    """
-    
-    #intersections = cv2.filter2D(roi_thresh.astype(np.float32), -1, kernel_cross)
-    
-    #_, intersect_thresh = cv2.threshold(intersections, 255*30, 255, cv2.THRESH_BINARY)
-    #intersect_thresh = intersect_thresh.astype(np.uint8)
-#    print(roi_thresh.astype(np.float32))
-    has_stone = True
-    print("")
-    for kernel in kernels:
-        filtered = np.sum(np.multiply(roi_thresh.astype(np.float32), kernel))
-        print(filtered)
-        is_empty = (filtered > -30*255)
-        if(is_empty):
-            has_stone = False
-            break
-    
-    #print(is_cross)
-    fill_val = 0 if has_stone else 255
-    intersect_thresh = np.full(np.shape(roi_thresh), fill_val, dtype=np.uint8)
-    
-    #roi_out = np.copy(roi)
-    #roi_out[:, :, 1] |= intersect_thresh
-    #for line in lines:
-    #    line = line[0]
-    #    cv2.line(roi_out, (line[0], line[1]), (line[2], line[3]), (0, 255, 0))
-    #imshow("Edges", edges_thresh)
-    
-    
-    #imshow("ROI", roi)
-    #imshow("Thresholded", roi_thresh)
-    #imshow("Intersections", intersect_thresh)
-    #imshow("Detected", roi_out)
-    return intersect_thresh
-    
-def buildThreshImage(img):
-    img_output = np.zeros((380, 380), dtype=np.uint8)
 
-    for x in range(19):
-        for y in range(19):
-            thresh = detectIntersection(img, x, y)
-            (roi_x, roi_y) = (x*20, y*20)
-            (roi_w, roi_h) = (20, 20)  
-            img_output[roi_y:roi_y+roi_h, roi_x:roi_x+roi_w] += thresh
-    imshow("Output", img_output)
-        
-def detectStonesInBoard(img):
-    radius = 5
-    threshold = 5
-
-    board = np.zeros((19, 19))
-    
-    for x in range(19):
-        for y in range(19):
-            thresh = detectIntersection(img, x, y)
-            
-            roi = thresh[10-radius:10+radius+1, 10-radius:10+radius+1]
-    
-            # circular mask
-            oy,ox = np.ogrid[-radius:radius+1, -radius:radius+1]
-            mask = (ox**2 + oy**2 <= radius**2).astype(np.uint8)
-            
-            int_masked = cv2.bitwise_and(roi, roi, mask=mask)
-            #imshow("Thresh", thresh)
-            #imshow("Masked", int_masked)
-            
-            # Check for intersections
-            num_intersection = np.count_nonzero(int_masked)
-            if num_intersection < threshold:
-                # It's a stone
-                # Find colour
-                avg_colour = findAverageColourPoint(img, 20*x + 10, 20*y + 8, 3)
-                avg_brightness = np.average(avg_colour)
-                if avg_brightness > 128:
-                    board[y][x] = -1
-                else:
-                    board[y][x] = 1
-    
-    return board
-
+# Draw a board from a 19x19 array
+#  0 = empty
+#  1 = black
+# -1 = white
 def drawBoard(board):
     img_board = np.zeros((380, 380, 3), dtype=np.uint8)
     
@@ -446,7 +288,8 @@ def drawBoard(board):
             cv2.circle(img_board, (x, y), 10, (0, 0, 0), 1)
             
     imshow("Board", img_board)
- 
+
+# Pretty-print the board    
 def printBoard(board):
     for y in range(19):
         str = ""
@@ -454,6 +297,7 @@ def printBoard(board):
             str += "%2d " % board[y][x]
         print(str)
 
+# Count how many differences there are between the boards
 def countErrors(board, exp):
     num = 0
     
@@ -491,9 +335,7 @@ test_cases = [
         ]
     },
     
-    # Missing one stone (offset)
-    # Change point for average colour?
-    # Change threshold for intersections?
+    # Needs testing
     {
         'fname': 'images/IMG_20180205_212841658.jpg',
         'board': [
@@ -545,7 +387,7 @@ test_cases = [
     }
 ]
 
-# Thanks to https://www.pyimagesearch.com/2014/07/21/detecting-circles-images-using-opencv-hough-circles/
+# Thanks to https://www.pyimagesearch.com/2014/07/21/detecting-circles-images-using-opencv-hough-circles/ for circle detection code
 def detectCircles(img):
     # Get grayscale image
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -565,13 +407,12 @@ def detectCircles(img):
         img_opened, 
         cv2.HOUGH_GRADIENT, 
         dp = 1, 
-        minDist = 16, 
+        minDist = 15, 
         param1 = 10,
         param2 = 5,
         minRadius = 7,
         maxRadius = 12
     )
-    print(circles)
     
     if circles is None:
         print("Warning: detected no circles in detectCircles()")
@@ -613,58 +454,47 @@ def detectBoardCircles(img):
     
     return board
     
-if __name__ == "__main__":
-    test_case = 2
-    fname = test_cases[test_case]['fname']
-    board_exp = test_cases[test_case]['board']
+def testOneCase(case_num, verbose=True):
+    # Get test info
+    fname = test_cases[case_num]['fname']
+    board_exp = test_cases[case_num]['board']
     
+    # Load image
     img = cv2.imread(fname)
     
-    # Missing one stone (offset)
-    # Change point for average colour??????
-    # Change threshold for intersections???
-    #img = cv2.imread('images/IMG_20180205_212841658.jpg')
-    
-    # Finds board contour
-    # Puts points in wrong order?
-    #img = cv2.imread('images/IMG_20180205_212834421.jpg')
-    
-    
+    # Detect the board
     corners = detect_board(img)
-    print(corners)
     corrected = correct_board(img, corners)
     
-    #colours = findAverageColours(corrected)
+    # Find the stones
+    board = detectBoardCircles(corrected)
     
-    #imshow("Original", img)
-    imshow("Corrected", corrected)
-    #imshow("Reconstructed", colours)
+    # Check accuracy
+    errors = countErrors(board, board_exp)
     
-    # Test: 
+    # Show output
+    if(verbose):
+        print("Detected board state:")
+        printBoard(board)
+        print("Errors: %d" % errors)
+        drawBoard(board)
+    
+    # Return to help testing all cases
+    return errors
+    
+def testAllCases():
+    # Loop through every case
+    for i in range(len(test_cases)):
+        errors = testOneCase(i, verbose=False)
+        print("%2d: %3d errors" % (i, errors))
+    
+if __name__ == "__main__":
+    # Code for testing one case
+    testOneCase(0)
+    
+    # Code for testing every case
+    testAllCases()
+    
+    # Other (deprecated)
     #scatterColors(corrected)
     
-    # Detect with intersection methods
-    #buildThreshImage(corrected)
-    #board = detectStonesInBoard(corrected)
-    #drawBoard(board)
-    #printBoard(board)
-    #print("Errors: %d" % countErrors(board, board_exp))
-    
-
-    
-    #detectIntersection(corrected, 0, 0)
-    #detectIntersection(corrected, 1, 0)
-    #detectIntersection(corrected, 0, 1)
-    #detectIntersection(corrected, 1, 1)
-    #detectIntersection(corrected, 3, 2)
-    #detectIntersection(corrected, 3, 3)
-    #detectIntersection(corrected, 4, 4)
-    
-    # Detect with circle method
-    board = detectBoardCircles(corrected)
-    drawBoard(board)
-    printBoard(board)
-    print("Errors: %d" % countErrors(board, board_exp))
-    #detectCircles(corrected)
-        
-#    cv2.waitKey(0)
