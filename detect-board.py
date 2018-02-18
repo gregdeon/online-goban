@@ -8,8 +8,8 @@ from mpl_toolkits.mplot3d import Axes3D
 from board_kernels import *
 
 # Global: set to False to disable debug images
+#debug = True
 debug = False
-# debug = True
 
 # Taken from Dan's helpers
 def imshow(title, img):
@@ -394,24 +394,59 @@ def detectCircles(img):
     
     # Find bright and dark portions of image
     mid = np.average(gray)
-    extremes = np.abs(gray.astype(np.int32) - mid).astype(np.uint8)
-    _, ext_thresh = cv2.threshold(extremes, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    #extremes = np.abs(gray.astype(np.int32) - mid).astype(np.uint8)
+    #_, ext_thresh = cv2.threshold(extremes, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
     
+    diff = gray.astype(np.int32) - mid
+    # TODO: are these -10/+10 okay? how to pick them automatically?
+    white = np.clip( diff-30, 0, 255).astype(np.uint8)
+    black = np.clip(-diff+30, 0, 255).astype(np.uint8)
+    #imshow("White", white)
+    #imshow("Black", black)
+    
+    # Threshold
+    _, white_thresh = cv2.threshold(white, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    _, black_thresh = cv2.threshold(black, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    
+    # Clean up images
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    white_opened = cv2.morphologyEx(white_thresh, cv2.MORPH_OPEN, kernel, iterations=2)
+#    white_closed = cv2.morphologyEx(white_opened, cv2.MORPH_CLOSE, kernel, iterations=2)
+    white_clean = white_opened
+    # TODO: need to close this?
+    # white_closed = cv2.morphologyEx(white_opened, cv2.MORPH_CLOSE, kernel, iterations=3)
+    #imshow("White Closed", white_closed)
+    
+    black_opened = cv2.morphologyEx(black_thresh, cv2.MORPH_OPEN, kernel, iterations=1)
+    black_closed = cv2.morphologyEx(black_opened, cv2.MORPH_CLOSE, kernel, iterations=2)
+    black_opened_2 = cv2.morphologyEx(black_closed, cv2.MORPH_OPEN, kernel, iterations=2)
+    black_clean = black_opened_2
+    
+    
+    # Combine
+    mask = cv2.bitwise_or(black_clean, white_clean)
     # Clean up image
-    kernel = np.full((3, 3), 1)
-    img_closed = cv2.morphologyEx(ext_thresh, cv2.MORPH_CLOSE, kernel, iterations=2)
-    img_opened = cv2.morphologyEx(img_closed, cv2.MORPH_OPEN, kernel, iterations=2)
+    #kernel = np.full((3, 3), 1)
+    #img_closed = cv2.morphologyEx(ext_thresh, cv2.MORPH_CLOSE, kernel, iterations=2)
+    #img_opened = cv2.morphologyEx(img_closed, cv2.MORPH_OPEN, kernel, iterations=2)
+    
+    #kernel_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    #kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+    #img_closed = cv2.morphologyEx(ext_thresh, cv2.MORPH_CLOSE, kernel_close, iterations=1)
+    #img_opened = cv2.morphologyEx(img_closed, cv2.MORPH_OPEN, kernel_open, iterations=3)
+    
+    
     
     # Detect circles
     circles = cv2.HoughCircles(
-        img_opened, 
+        mask, 
         cv2.HOUGH_GRADIENT, 
         dp = 1, 
-        minDist = 15, 
+        minDist = 16, 
         param1 = 10,
-        param2 = 5,
+        param2 = 6,
         minRadius = 7,
-        maxRadius = 12
+        maxRadius = 11
     )
     
     if circles is None:
@@ -420,9 +455,20 @@ def detectCircles(img):
         
     circles = np.round(circles[0, :]).astype("int")
     if debug:
-        imshow("Extremes", extremes)
-        imshow("Thresholded", ext_thresh)
-        imshow("Cleaned", img_opened)
+        imshow("Gray", gray)
+        #imshow("Extremes", extremes)
+        #imshow("Thresholded", ext_thresh)
+        #imshow("Closed", img_closed)
+        #imshow("Opened", img_opened)
+        
+        imshow("White", white_thresh)
+        imshow("White Open", white_opened)
+        imshow("Black", black_thresh)
+        imshow("Black Opened", black_opened)
+        imshow("Black Closed", black_closed)
+        imshow("Black Opened 2", black_opened_2)
+        imshow("Mask", mask)
+        
         
         output = np.copy(img)
         for (x, y, r) in circles:
@@ -490,7 +536,7 @@ def testAllCases():
     
 if __name__ == "__main__":
     # Code for testing one case
-    testOneCase(0)
+    #testOneCase(2)
     
     # Code for testing every case
     testAllCases()
