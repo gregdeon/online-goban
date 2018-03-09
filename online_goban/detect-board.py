@@ -8,8 +8,8 @@ from mpl_toolkits.mplot3d import Axes3D
 from board_kernels import *
 
 # Global: set to False to disable debug images
-#debug = True
-debug = False
+debug = True
+#debug = False
 
 # Taken from Dan's helpers
 def imshow(title, img):
@@ -536,10 +536,10 @@ def testAllCases():
     
 if __name__ == "__main__":
     # Code for testing one case
-    #testOneCase(2)
+    testOneCase(2)
     
     # Code for testing every case
-    testAllCases()
+    #testAllCases()
     
     # Other (deprecated)
     #scatterColors(corrected)
