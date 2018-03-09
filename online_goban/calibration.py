@@ -15,15 +15,24 @@ def calibrate():
         CAM_AUTOFOCUS
     )
 
-    # Take a picture
-    ret, img = cam.read()
+    img = None
+
+    while True: 
+        # Take a picture
+        ret, img = cam.read()
+
+        # Orient correctly
+        img = cv2.flip(img, 0)
+        img = cv2.flip(img, 1)
+        cv2.imshow("Raw", img)
+
+        key = cv2.waitKey(1000 // 30)
+        if key == ord(' '):
+            break
+
     cam.release()
+    cv2.destroyAllWindows()
 
-    # Orient correctly
-    img = cv2.flip(img, 0)
-    img = cv2.flip(img, 1)
-
-    #cv2.imshow("Raw", img)
 
     # Find the four corners of the board
     corners = findCorners(img)
@@ -55,6 +64,7 @@ def findCorners(img):
 
     # Display a window for selecting the corners
     cv2.namedWindow("Calibration")
+    cv2.namedWindow("Calibration Detail")
     cv2.setMouseCallback("Calibration", handleCalibrationClick)
 
     while True:
@@ -62,19 +72,36 @@ def findCorners(img):
         img_clone = np.copy(img)
 
         # Draw the selected points and lines between them
+        cv2.circle(img_clone, mouse_pos, 4, (0, 0, 255), 1)
         for i in range(len(calibration_corners)):
             x, y = calibration_corners[i]
-            cv2.circle(img_clone, (x, y), 3, (0, 0, 255), -1)
+            cv2.circle(img_clone, (x, y), 4, (0, 0, 255), 1)
 
             if i > 0:
                 xp, yp = calibration_corners[i-1]
-                cv2.line(img_clone, (x, y), (xp, yp), (0, 0, 255), 2)
+                cv2.line(img_clone, (x, y), (xp, yp), (0, 0, 255), 1)
 
             if i == 0 or i == len(calibration_corners) - 1:
-                cv2.line(img_clone, (x, y), mouse_pos, (0, 0, 255), 2)
+                cv2.line(img_clone, (x, y), mouse_pos, (0, 0, 255), 1)
+
+
         
         # Show our progress
         cv2.imshow("Calibration", img_clone)
+
+        # Show zoom too
+        roi_size_in = 20
+        roi_size_out = 200
+        (img_h, img_w, _) = np.shape(img_clone)
+        (mouse_x, mouse_y) = mouse_pos
+        roi_x1 = np.clip(mouse_x - roi_size_in, 0, None)
+        roi_x2 = np.clip(mouse_x + roi_size_in, None, img_w-1)
+        roi_y1 = np.clip(mouse_y - roi_size_in, 0, None)
+        roi_y2 = np.clip(mouse_y + roi_size_in, None, img_h-1)
+
+        roi = img_clone[roi_y1:roi_y2, roi_x1:roi_x2]
+        roi = cv2.resize(roi, (roi_size_out, roi_size_out))
+        cv2.imshow("Calibration Detail", roi)
 
         # If we have 4 corners, stop
         key = cv2.waitKey(1000 // 60)
