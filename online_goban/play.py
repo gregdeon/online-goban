@@ -63,7 +63,7 @@ def findAverageColourPoint(img, x, y, radius):
     return cv2.mean(roi, mask=mask)
 
 # Thanks to https://www.pyimagesearch.com/2014/07/21/detecting-circles-images-using-opencv-hough-circles/ for circle detection code
-def detectCircles(img):
+def detectBoardCircles(img):
     # Get grayscale image
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
@@ -76,50 +76,55 @@ def detectCircles(img):
     blur_size = 20*4
     blur_kernel = np.ones((blur_size, blur_size)) / (blur_size ** 2)
     blurred = cv2.filter2D(gray, -1, blur_kernel)
-    cv2.imshow("Blurred", blurred)
+    #cv2.imshow("Blurred", blurred)
     #extremes = np.abs(gray.astype(np.int32) - mid).astype(np.uint8)
     #_, ext_thresh = cv2.threshold(extremes, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
     
     diff = gray.astype(np.int32) - blurred
     
-    # TODO: are these -10/+10 okay? how to pick them automatically?
-    move = 20
+    # TODO: how to pick this automatically?
+    move = 0
     white = np.clip( diff-move, 0, 255).astype(np.uint8)
     black = np.clip(-diff+move, 0, 255).astype(np.uint8)
-    cv2.imshow("White", white)
+    #cv2.imshow("White", white)
     cv2.imshow("Black", black)
     
     # Threshold
-    _, white_thresh = cv2.threshold(white, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    #_, white_thresh = cv2.threshold(white, 0, 255, cv2.THRESHESH_BINARY | cv2.THRESH_OTSU)
+    #_, black_thresh = cv2.threshold(black, 30, 255, cv2.THRESH_BINARY)
     _, black_thresh = cv2.threshold(black, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    _, white_thresh = cv2.threshold(white, 50, 255, cv2.THRESH_BINARY)
+    cv2.imshow("White Thresh", white_thresh)
+    #cv2.imshow("Black Thresh", black_thresh)
     
     # Clean up images
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    kernel_small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+
     white_opened = cv2.morphologyEx(white_thresh, cv2.MORPH_OPEN, kernel, iterations=2)
 #    white_closed = cv2.morphologyEx(white_opened, cv2.MORPH_CLOSE, kernel, iterations=2)
     white_clean = white_opened
     # TODO: need to close this?
     # white_closed = cv2.morphologyEx(white_opened, cv2.MORPH_CLOSE, kernel, iterations=3)
     #imshow("White Closed", white_closed)
-    
-    black_opened = cv2.morphologyEx(black_thresh, cv2.MORPH_OPEN, kernel, iterations=1)
-    black_closed = cv2.morphologyEx(black_opened, cv2.MORPH_CLOSE, kernel, iterations=2)
-    black_opened_2 = cv2.morphologyEx(black_closed, cv2.MORPH_OPEN, kernel, iterations=2)
+
+    # Remove lines
+    black_opened = cv2.morphologyEx(black_thresh, cv2.MORPH_OPEN, kernel_small, iterations=1)
+
+    # Remove reflections
+    black_closed = cv2.morphologyEx(black_opened, cv2.MORPH_CLOSE, kernel_small, iterations=2)
+
+    # Remove intersections
+    black_opened_2 = cv2.morphologyEx(black_closed, cv2.MORPH_OPEN, kernel_small, iterations=4)
+
     black_clean = black_opened_2
-    
-    
+    #cv2.imshow("Black Opened", black_opened)
+    #cv2.imshow("Black Closed", black_closed)
+    cv2.imshow("White Mask", white_clean)
+
     # Combine
     mask = cv2.bitwise_or(black_clean, white_clean)
-    # Clean up image
-    #kernel = np.full((3, 3), 1)
-    #img_closed = cv2.morphologyEx(ext_thresh, cv2.MORPH_CLOSE, kernel, iterations=2)
-    #img_opened = cv2.morphologyEx(img_closed, cv2.MORPH_OPEN, kernel, iterations=2)
-    
-    #kernel_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-    #kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
-    #img_closed = cv2.morphologyEx(ext_thresh, cv2.MORPH_CLOSE, kernel_close, iterations=1)
-    #img_opened = cv2.morphologyEx(img_closed, cv2.MORPH_OPEN, kernel_open, iterations=3)
-    
+
     
     
     # Detect circles
@@ -133,68 +138,69 @@ def detectCircles(img):
         minRadius = 7,
         maxRadius = 11
     )
+
+    # Make a board array
+    board = np.zeros((19, 19))
     
+    # If we didn't find anything, don't do anything to the board
     if circles is None:
         print("Warning: detected no circles in detectCircles()")
-        return
+        return board
         
+    # Look at each circle
+    (img_h, img_w, _) = np.shape(img)
     circles = np.round(circles[0, :]).astype("int")
+    for (x, y, r) in circles:
+        # If the circle goes off the board, skip it
+        r_col = r//2
+        if x - r_col < 0 or \
+           x + r_col >= img_w or \
+           y - r_col < 0 or \
+           y + r_col >= img_h:
+            continue
+
+        # Find closest position 
+        xb = np.clip(x // 20, 0, 18)
+        yb = np.clip(y // 20, 0, 18)
+        
+        # Find which colour of stone it is
+        avg_colour = findAverageColourPoint(img, x, y, r_col)
+        avg_brightness = np.average(avg_colour)
+        avg_neighbourhood = blurred[y][x]
+        
+        if avg_brightness > avg_neighbourhood:
+            board[yb][xb] = -1
+        else:
+            board[yb][xb] = 1
+
+        
+        
     if debug:
-        #imshow("Gray", gray)
-        #imshow("Extremes", extremes)
-        #imshow("Thresholded", ext_thresh)
-        #imshow("Closed", img_closed)
-        #imshow("Opened", img_opened)
-        
-        #imshow("White", white_thresh)
-        #imshow("White Open", white_opened)
-        #imshow("Black", black_thresh)
-        #imshow("Black Opened", black_opened)
-        #imshow("Black Closed", black_closed)
-        #imshow("Black Opened 2", black_opened_2)
         cv2.imshow("Mask", mask)
-        
-        
+
         output = np.copy(img)
         for (x, y, r) in circles:
             cv2.circle(output, (x, y), r, (0, 255, 0), 2)
         cv2.imshow("Detected", output)
-        
-    return circles
 
+    return board
+
+"""
 # Detect the board state by finding circles in the image
 def detectBoardCircles(img):
     # Get image size
-    (img_w, img_h, _) = np.shape(img)
+    (img_h, img_w, _) = np.shape(img)
 
     # Find all the circles
     circles = detectCircles(img)
     
     # Find in board
-    board = np.zeros((19, 19))
     if circles is not None:
-        for (x, y, r) in circles:
-            # If the circle goes off the board, skip it
-            if x - r < 0 or \
-               x + r >= img_w or \
-               y - r < 0 or \
-               y + r >= img_h:
-                continue
+        for 
 
-            # Find closest position 
-            xb = np.clip(x // 20, 0, 18)
-            yb = np.clip(y // 20, 0, 18)
-            
-            # Find which colour of stone it is
-            avg_colour = findAverageColourPoint(img, x, y, r//2)
-            avg_brightness = np.average(avg_colour)
-            
-            if avg_brightness > 128:
-                board[yb][xb] = -1
-            else:
-                board[yb][xb] = 1
     
     return board
+"""
 
 def play():
     cam = connectToCamera(

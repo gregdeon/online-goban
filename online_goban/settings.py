@@ -12,8 +12,8 @@ CAM_GAIN = None
 
 # Board position in camera frame
 CALIBRATION_DATA = [
-    [36, 159],
-    [392, 133],
-    [453, 395],
-    [192, 376],
+    [37, 165],
+    [379, 135],
+    [452, 381],
+    [193, 370],
 ]
