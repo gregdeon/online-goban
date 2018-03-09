@@ -19,11 +19,58 @@ def connectToCamera(cam_id, gain=None, autofocus=True):
         
     return cam
 
+# Constants for drawing
+# Access like board_fills[current][prev]
+board_fills = {
+    # Empty
+    0: {
+        0: None,            # Empty
+        1: (50, 50, 50),    # Black
+        -1: (200, 200, 200) # White
+    },
+    # Black
+    1: {
+        0: (0, 0, 0),
+        1: (0, 0, 0),
+        -1: (0, 0, 0),
+    },
+    # White
+    -1: {
+        0: (255, 255, 255),
+        1: (255, 255, 255),
+        -1: (255, 255, 255),
+    }
+}
+
+board_accents = {
+    # Empty
+    0: {
+        0: None,
+        1: (0, 0, 255),
+        -1: (0, 0, 255),
+    },
+    # Black
+    1: {
+        0: (0, 255, 0),
+        1: (0, 0, 0),
+        -1: (0, 0, 255),
+    },
+    -1: {
+        0: (0, 255, 0),
+        1: (0, 0, 255),
+        -1: (0, 0, 0),
+    }
+}
+
 # Draw a board from a 19x19 array
 #  0 = empty
 #  1 = black
 # -1 = white
-def drawBoard(board):
+def drawBoard(board, prev_board=None):
+    # Default previous board is empty
+    if prev_board is None:
+        prev_board = np.zeros((19, 19))
+
     img_board = np.zeros((380, 380, 3), dtype=np.uint8)
     
     # Set background colour
@@ -48,18 +95,21 @@ def drawBoard(board):
     # Draw stones
     for iy in range(19):
         for ix in range(19):
-            if board[iy][ix] == 0:
+            stone_now = board[iy][ix]
+            stone_prev = prev_board[iy][ix]
+
+            stone_fill = board_fills[stone_now][stone_prev]
+            stone_accent = board_accents[stone_now][stone_prev]
+            stone_thickness = 1 if stone_now == stone_prev else 2
+
+            if not stone_fill:
                 continue
-            
-            stone_color = (255, 255, 255)
-            if board[iy][ix] == 1:
-                stone_color = (0, 0, 0)
-            
+
             y = 10 + 20*iy
             x = 10 + 20*ix
             
-            cv2.circle(img_board, (x, y), 10, stone_color, -1)
-            cv2.circle(img_board, (x, y), 10, (0, 0, 0), 1)
+            cv2.circle(img_board, (x, y), 10, stone_fill, -1)
+            cv2.circle(img_board, (x, y), 10, stone_accent, stone_thickness)
             
     return img_board
     imshow("Board", img_board)

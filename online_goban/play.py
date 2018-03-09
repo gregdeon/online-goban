@@ -64,6 +64,7 @@ def findAverageColourPoint(img, x, y, radius):
 
 # Thanks to https://www.pyimagesearch.com/2014/07/21/detecting-circles-images-using-opencv-hough-circles/ for circle detection code
 def detectBoardCircles(img):
+
     # Get grayscale image
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
@@ -76,6 +77,9 @@ def detectBoardCircles(img):
     blur_size = 20*4
     blur_kernel = np.ones((blur_size, blur_size)) / (blur_size ** 2)
     blurred = cv2.filter2D(gray, -1, blur_kernel)
+
+    blurred_rgb = cv2.filter2D(img, -1, blur_kernel)
+    cv2.imshow("Blurred RGB", blurred_rgb)
     #cv2.imshow("Blurred", blurred)
     #extremes = np.abs(gray.astype(np.int32) - mid).astype(np.uint8)
     #_, ext_thresh = cv2.threshold(extremes, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
@@ -212,6 +216,7 @@ def play():
     cv2.namedWindow("Video")
 
     calib_points = np.array(CALIBRATION_DATA, dtype = "float32")
+    prev_board = None
 
     while True:
         ret, img = cam.read()
@@ -224,16 +229,19 @@ def play():
         # Convert to board
         board = detectBoardCircles(img_warped)
 
-        img_board = drawBoard(board)
+        img_board = drawBoard(board, prev_board)
 
         cv2.imshow("Video", img)
         cv2.imshow("Board", img_board)
         #cv2.imshow("Warped", img_warped)
 
-        # Stop when pressing esc
         key = cv2.waitKey(1000 // 30)
+        # Stop when pressing esc
         if key == 27:
             break
+        # Save position when pressing space
+        elif key == ord(' '):
+            prev_board = board
 
     cv2.destroyAllWindows()
     cam.release()
