@@ -8,7 +8,7 @@ from online_goban.calibration import calibrate
 # Main function for playing game
 def main_play(args):
     print("Playing game at " + args.url)
-    play()
+    play(args.url)
 
 # Calibration controller
 def main_calibrate(args):
@@ -40,5 +40,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     try:
         args.cmd(args)
-    except AttributeError:
+    except AttributeError as e: 
         parser.print_help()
+        print(e)

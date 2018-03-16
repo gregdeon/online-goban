@@ -71,24 +71,24 @@ def drawBoard(board, prev_board=None):
     if prev_board is None:
         prev_board = np.zeros((19, 19))
 
-    img_board = np.zeros((380, 380, 3), dtype=np.uint8)
+    img_board = np.zeros((760, 760, 3), dtype=np.uint8)
     
     # Set background colour
     img_board[:] = [86, 170, 255]
     
     # Draw lines
     for i in range(19):
-        pos = 10 + 20*i
-        cv2.line(img_board, (pos, 10), (pos, 370), (0, 0, 0), 1)
-        cv2.line(img_board, (10, pos), (370, pos), (0, 0, 0), 1)
+        pos = 20 + 40*i
+        cv2.line(img_board, (pos, 20), (pos, 740), (0, 0, 0), 1)
+        cv2.line(img_board, (20, pos), (740, pos), (0, 0, 0), 1)
         
     # Draw star points
     star_pos = [3, 9, 15]
-    star_radius = 4
+    star_radius = 7
     for iy in star_pos:
         for ix in star_pos:
-            y = 10 + 20*iy
-            x = 10 + 20*ix
+            y = 20 + 40*iy
+            x = 20 + 40*ix
             cv2.circle(img_board, (x, y), star_radius, (0, 0, 0), -1)
             
             
@@ -100,16 +100,16 @@ def drawBoard(board, prev_board=None):
 
             stone_fill = board_fills[stone_now][stone_prev]
             stone_accent = board_accents[stone_now][stone_prev]
-            stone_thickness = 1 if stone_now == stone_prev else 2
+            stone_thickness = 1 if stone_now == stone_prev else 3
 
             if not stone_fill:
                 continue
 
-            y = 10 + 20*iy
-            x = 10 + 20*ix
+            y = 20 + 40*iy
+            x = 20 + 40*ix
             
-            cv2.circle(img_board, (x, y), 10, stone_fill, -1)
-            cv2.circle(img_board, (x, y), 10, stone_accent, stone_thickness)
+            cv2.circle(img_board, (x, y), 20, stone_fill, -1)
+            cv2.circle(img_board, (x, y), 20, stone_accent, stone_thickness)
             
     return img_board
     imshow("Board", img_board)

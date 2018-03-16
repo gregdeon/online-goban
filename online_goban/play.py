@@ -2,8 +2,15 @@
 import cv2
 import numpy as np
 
+# Web API
+import requests
+from oauthlib.oauth2 import LegacyApplicationClient
+from requests_oauthlib import OAuth2Session
+from websocket import create_connection
+
 from online_goban.utils import *
 from online_goban.settings import *
+from online_goban.ogs_auth import *
 
 debug = True
 
@@ -79,7 +86,7 @@ def detectBoardCircles(img):
     blurred = cv2.filter2D(gray, -1, blur_kernel)
 
     blurred_rgb = cv2.filter2D(img, -1, blur_kernel)
-    cv2.imshow("Blurred RGB", blurred_rgb)
+    #cv2.imshow("Blurred RGB", blurred_rgb)
     #cv2.imshow("Blurred", blurred)
     #extremes = np.abs(gray.astype(np.int32) - mid).astype(np.uint8)
     #_, ext_thresh = cv2.threshold(extremes, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
@@ -91,14 +98,14 @@ def detectBoardCircles(img):
     white = np.clip( diff-move, 0, 255).astype(np.uint8)
     black = np.clip(-diff+move, 0, 255).astype(np.uint8)
     #cv2.imshow("White", white)
-    cv2.imshow("Black", black)
+    #cv2.imshow("Black", black)
     
     # Threshold
     #_, white_thresh = cv2.threshold(white, 0, 255, cv2.THRESHESH_BINARY | cv2.THRESH_OTSU)
     #_, black_thresh = cv2.threshold(black, 30, 255, cv2.THRESH_BINARY)
     _, black_thresh = cv2.threshold(black, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
     _, white_thresh = cv2.threshold(white, 50, 255, cv2.THRESH_BINARY)
-    cv2.imshow("White Thresh", white_thresh)
+    #cv2.imshow("White Thresh", white_thresh)
     #cv2.imshow("Black Thresh", black_thresh)
     
     # Clean up images
@@ -124,7 +131,7 @@ def detectBoardCircles(img):
     black_clean = black_opened_2
     #cv2.imshow("Black Opened", black_opened)
     #cv2.imshow("Black Closed", black_closed)
-    cv2.imshow("White Mask", white_clean)
+    #cv2.imshow("White Mask", white_clean)
 
     # Combine
     mask = cv2.bitwise_or(black_clean, white_clean)
@@ -180,12 +187,12 @@ def detectBoardCircles(img):
         
         
     if debug:
-        cv2.imshow("Mask", mask)
+        #cv2.imshow("Mask", mask)
 
         output = np.copy(img)
         for (x, y, r) in circles:
             cv2.circle(output, (x, y), r, (0, 255, 0), 2)
-        cv2.imshow("Detected", output)
+        #cv2.imshow("Detected", output)
 
     return board
 
@@ -206,7 +213,166 @@ def detectBoardCircles(img):
     return board
 """
 
-def play():
+# Class for keeping track of connections to OGS
+class OGSClient(object):
+    def __init__(self, game_id):
+        self.game_id = game_id
+        self.client = None
+        self.client_token = None
+        self.game_token = None
+
+    # Connect to the web API and return an authenticated client
+    # Return type is an OAuth2Session
+    def connect(self):
+        # URL for getting tokens
+        token_url = 'https://online-go.com/oauth2/token/'
+
+        # Inputs for refreshing an expired token
+        refresh_args = {
+            'client_id': OGS_CLIENT_ID,
+            'client_secret': OGS_CLIENT_SECRET,
+        }
+
+        # Make session
+        self.client = OAuth2Session(
+            client = LegacyApplicationClient(
+                client_id = OGS_CLIENT_ID
+            ),
+            auto_refresh_url = token_url,
+            auto_refresh_kwargs = refresh_args,
+            token_updater = self._updateToken
+        )
+
+
+        # Fetch an access token
+        token = self.client.fetch_token(
+            token_url = token_url, 
+            username = OGS_USERNAME,
+            password = OGS_PASSWORD,
+            client_id = OGS_CLIENT_ID,
+            client_secret = OGS_CLIENT_SECRET,
+        )
+        self._updateToken(token)
+
+        # Get the game's WS auth token
+        r = self._getGameState()
+
+        # Connect to the game's websocket
+
+
+        self.game_token = r['auth']
+
+        
+    # Update our API token 
+    def _updateToken(self, new_token):
+        print("DEBUG: updating token")
+        print(new_token)
+        self.client_token = new_token
+
+    # Get the entire game state from the server
+    def _getGameState(self):
+        game_url = 'https://online-go.com/api/v1/games/' + self.game_id + '/'
+        r = self.client.get(game_url)
+        return r.json()
+
+    # Get a 19x19 array of the current game state
+    # 0 = empty; 1 = black; -1 = white
+    def getBoard(self):
+        # Get the list of moves
+        game_state = self._getGameState()
+        move_list = game_state['gamedata']['moves']
+
+        # Build the board
+        board = np.zeros((19, 19))
+
+        # Start as black
+        color = 1
+        for [x, y, _] in move_list:
+            if x >= 0:
+                board[y][x] = color
+
+            # Switch colors
+            color = -color
+
+        return board
+
+    # Attempt to play a move
+    def playMove(self, x, y):
+        # Set up request
+        letter_list = 'abcdefghijklmnopqrs'
+        endpoint = 'https://online-go.com/api/v1/games/' + self.game_id + '/move/'
+        move = letter_list[x] + letter_list[y]
+        data = {
+            'move': move
+        }
+
+        # Make request
+        r = self.client.post(
+            endpoint, 
+            data = data
+        )
+
+        print(r.__dict__)
+
+def findAndPlayMove(client, online_board, local_board):
+    # Find differences between boards
+    # If local board doesn't have 1 added stone, fail
+    # Try to play the 1 added stone
+    # If there's an error, tell the user
+
+    client.playMove(3, 3)
+
+def play(game_id):
+    # Connect to client
+    ogs_client = OGSClient(game_id)
+    ogs_client.connect()
+
+    # Connect to camera
+    cam = connectToCamera(
+        CAM_ID,
+        CAM_GAIN,
+        CAM_AUTOFOCUS
+    )
+    # TODO: do I need this?
+    cv2.namedWindow("Video")
+    calib_points = np.array(CALIBRATION_DATA, dtype = "float32")
+
+    # Board states: 
+    online_board = ogs_client.getBoard()
+    local_board = None
+
+    while True:
+        ret, img = cam.read()
+        img = cv2.flip(img, 0)
+        img = cv2.flip(img, 1)
+
+        # Warp image
+        img_warped = four_point_transform(img, calib_points)
+
+        # Convert to board
+        local_board = detectBoardCircles(img_warped)
+
+        img_board = drawBoard(local_board, online_board)
+
+        cv2.imshow("Video", img)
+        cv2.imshow("Board", img_board)
+        #cv2.imshow("Warped", img_warped)
+
+        key = cv2.waitKey(1000 // 30)
+        # Stop when pressing esc
+        if key == 27:
+            break
+        # Submit move when pressing space
+        elif key == ord(' '):
+            findAndPlayMove(ogs_client, online_board, local_board)
+        # Refresh position from online when pressing R
+        # TODO: trigger this with WS messages
+        elif key == ord('r'):
+            online_board = ogs_client.getBoard()
+    cv2.destroyAllWindows()
+    cam.release()
+
+def play_offline():
     cam = connectToCamera(
         CAM_ID,
         CAM_GAIN,
