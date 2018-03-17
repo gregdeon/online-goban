@@ -11,6 +11,7 @@ import subprocess
 from online_goban.utils import *
 from online_goban.settings import *
 from online_goban.ogs_auth import *
+import online_goban.asyncproc as asyncproc
 
 debug = True
 
@@ -267,7 +268,7 @@ class OGSClient(object):
 
         # Also, start running the real-time client
         self.process = subprocess.Popen(
-            'node ./connect_socket.js',
+            'node ./connect_socket',
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE
         )
@@ -280,6 +281,7 @@ class OGSClient(object):
             str(self.game_id),
         ]) + "\n"
         self.process.stdin.write(auth_string.encode('utf-8'))
+        self.process.stdin.flush()
 
         
     # Update our API token 
@@ -346,14 +348,16 @@ class OGSClient(object):
     def playMove(self, x, y):
         move = self._convertCoordsToMove(x, y)
         self.process.stdin.write((move + "\n").encode('utf-8'))
+        self.process.stdin.flush()
 
     # Get a message from the real-time client
     def getRealTimeMessage(self):
-        try:
-            line = self.process.stdout.readline()
-            return line.rstrip()
-        except:
+        line = self.process.stdout.readline().rstrip()
+        print(line)
+        if line.startswith(b".") or line.startswith(b"connected"):
             return None
+        else:
+            return line
 
 def findAndPlayMove(client, online_board, local_board):
     # Find differences between boards
@@ -361,7 +365,7 @@ def findAndPlayMove(client, online_board, local_board):
     # Try to play the 1 added stone
     # If there's an error, tell the user
 
-    client.playMove(3, 3)
+    client.playMove(4, 4)
 
 def play(game_id):
     # Connect to client
@@ -411,7 +415,6 @@ def play(game_id):
 
         # Check for messages
         line = ogs_client.getRealTimeMessage()
-        print(line)
         if line is not None and line != 'connected':
             # Update the board
             ogs_client.addToBoard(line)

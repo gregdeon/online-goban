@@ -67,6 +67,10 @@ function println(msg) {
     process.stdout.write(msg + "\n");
 }
 
+function printerr(msg) {
+    process.stderr.write(msg + "\n");
+}
+
 // Give authentication information
 function startConnect() {
     socket = io.connect("https://online-go.com", {
@@ -89,6 +93,10 @@ function authenticate()
 function finishConnect() {
     connected = true;
     println("connected");
+
+    setInterval(function(){
+        println(".");
+    }, 100);
 }
 
 // Play a move encoded like "dc"
