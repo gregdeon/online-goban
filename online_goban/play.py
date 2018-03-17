@@ -6,7 +6,7 @@ import numpy as np
 import requests
 from oauthlib.oauth2 import LegacyApplicationClient
 from requests_oauthlib import OAuth2Session
-from websocket import create_connection
+import subprocess
 
 from online_goban.utils import *
 from online_goban.settings import *
@@ -216,10 +216,21 @@ def detectBoardCircles(img):
 # Class for keeping track of connections to OGS
 class OGSClient(object):
     def __init__(self, game_id):
+        # OGS ID of our game
         self.game_id = game_id
+
+        # OAuth2 client
         self.client = None
+
+        # Access token for OAuth2
         self.client_token = None
-        self.game_token = None
+
+        # Subprocess running real-time connections
+        self.process = None
+
+        # Current board
+        self.board = np.zeros((19, 19))
+        self.next_color = 1
 
     # Connect to the web API and return an authenticated client
     # Return type is an OAuth2Session
@@ -254,13 +265,21 @@ class OGSClient(object):
         )
         self._updateToken(token)
 
-        # Get the game's WS auth token
-        r = self._getGameState()
+        # Also, start running the real-time client
+        self.process = subprocess.Popen(
+            'node ./connect_socket.js',
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE
+        )
 
-        # Connect to the game's websocket
-
-
-        self.game_token = r['auth']
+        # Send it our credentials
+        auth_string = ",".join([
+            OGS_USERNAME,
+            str(OGS_USER_ID),
+            OGS_USER_AUTH,
+            str(self.game_id),
+        ]) + "\n"
+        self.process.stdin.write(auth_string.encode('utf-8'))
 
         
     # Update our API token 
@@ -275,44 +294,66 @@ class OGSClient(object):
         r = self.client.get(game_url)
         return r.json()
 
+    # Convert (2, 3) into "cd"
+    # Special case: (-1, -1) becomes "zz"
+    def _convertCoordsToMove(self, x, y):
+        letter_list = 'abcdefghijklmnopqrs'
+        if x < 0 and y < 0:
+            return "zz"
+        else:
+            return letter_list[x] + letter_list[y]
+
+    # Convert "cd" to (2, 3)
+    # Special case: "zz" becomes (-1, -1)
+    def _convertMoveToCoords(self, move):
+        letter_list = 'abcdefghijklmnopqrsz'
+        x = letter_list.index(move[0])
+        y = letter_list.index(move[1])
+
+        if x < 19 and y < 19:
+            return (x, y)
+        else:
+            return (-1, -1)
+
     # Get a 19x19 array of the current game state
     # 0 = empty; 1 = black; -1 = white
-    def getBoard(self):
+    def readBoard(self):
         # Get the list of moves
         game_state = self._getGameState()
         move_list = game_state['gamedata']['moves']
 
         # Build the board
-        board = np.zeros((19, 19))
+        self.board = np.zeros((19, 19))
 
         # Start as black
-        color = 1
+        self.next_color = 1
+
+        # Add each move
         for [x, y, _] in move_list:
-            if x >= 0:
-                board[y][x] = color
+            move = self._convertCoordsToMove(x, y)
+            self.addToBoard(move)
 
-            # Switch colors
-            color = -color
+    # Add a move to the board
+    # Move is formatted like "cd" (ie: [a-s][a-s])
+    def addToBoard(self, move):
+        (x, y) = self._convertMoveToCoords(move)
 
-        return board
+        if x < 19 and y < 19:
+            self.board[y][x] = self.next_color
+        self.next_color = -self.next_color
 
     # Attempt to play a move
     def playMove(self, x, y):
-        # Set up request
-        letter_list = 'abcdefghijklmnopqrs'
-        endpoint = 'https://online-go.com/api/v1/games/' + self.game_id + '/move/'
-        move = letter_list[x] + letter_list[y]
-        data = {
-            'move': move
-        }
+        move = self._convertCoordsToMove(x, y)
+        self.process.stdin.write((move + "\n").encode('utf-8'))
 
-        # Make request
-        r = self.client.post(
-            endpoint, 
-            data = data
-        )
-
-        print(r.__dict__)
+    # Get a message from the real-time client
+    def getRealTimeMessage(self):
+        try:
+            line = self.process.stdout.readline()
+            return line.rstrip()
+        except:
+            return None
 
 def findAndPlayMove(client, online_board, local_board):
     # Find differences between boards
@@ -338,7 +379,7 @@ def play(game_id):
     calib_points = np.array(CALIBRATION_DATA, dtype = "float32")
 
     # Board states: 
-    online_board = ogs_client.getBoard()
+    online_board = ogs_client.readBoard()
     local_board = None
 
     while True:
@@ -367,8 +408,15 @@ def play(game_id):
             findAndPlayMove(ogs_client, online_board, local_board)
         # Refresh position from online when pressing R
         # TODO: trigger this with WS messages
-        elif key == ord('r'):
-            online_board = ogs_client.getBoard()
+
+        # Check for messages
+        line = ogs_client.getRealTimeMessage()
+        print(line)
+        if line is not None and line != 'connected':
+            # Update the board
+            ogs_client.addToBoard(line)
+            online_board = ogs_client.board
+
     cv2.destroyAllWindows()
     cam.release()
 

@@ -4,6 +4,7 @@ import argparse
 from online_goban.play import play
 from online_goban.calibration import calibrate
 
+import traceback
 
 # Main function for playing game
 def main_play(args):
@@ -42,4 +43,4 @@ if __name__ == "__main__":
         args.cmd(args)
     except AttributeError as e: 
         parser.print_help()
-        print(e)
+        traceback.print_exc()
