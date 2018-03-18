@@ -135,10 +135,42 @@ def detectBoardCircles(img):
     cv2.imshow("White Mask", white_clean)
     cv2.imshow("Black Mask", black_clean)
 
+    # Make a board array
+    board = np.zeros((19, 19))
+
+    # Look through masks
+    for y in range(19):
+        for x in range(19):
+            # Get ROIs
+            center_x = 11 + 20*x
+            center_y = 11 + 20*y
+
+            roi_x1 = center_x - 5
+            roi_x2 = center_x + 5
+            roi_y1 = center_y - 5
+            roi_y2 = center_y + 5
+
+            roi_w = white_clean[roi_y1:roi_y2, roi_x1:roi_x2]
+            roi_b = black_clean[roi_y1:roi_y2, roi_x1:roi_x2]
+
+            # Set thresholds for detecting stones
+            # 32/100
+            thresh_count = 20
+
+            # Get pixel counts
+            count_w = np.sum(roi_w) // 255
+            count_b = np.sum(roi_b) // 255
+
+            # Mark as stone
+            if count_w > thresh_count:
+                board[y][x] = -1
+            elif count_b > thresh_count:
+                board[y][x] = 1
+    """
     # Combine
     mask = cv2.bitwise_or(black_clean, white_clean)
 
-    
+    # 
     
     # Detect circles
     circles = cv2.HoughCircles(
@@ -151,9 +183,6 @@ def detectBoardCircles(img):
         minRadius = 7,
         maxRadius = 11
     )
-
-    # Make a board array
-    board = np.zeros((19, 19))
     
     # If we didn't find anything, don't do anything to the board
     if circles is None:
@@ -187,7 +216,6 @@ def detectBoardCircles(img):
             board[yb][xb] = 1
 
         
-        
     if debug:
         #cv2.imshow("Mask", mask)
 
@@ -195,6 +223,7 @@ def detectBoardCircles(img):
         for (x, y, r) in circles:
             cv2.circle(output, (x, y), r, (0, 255, 0), 2)
         #cv2.imshow("Detected", output)
+    """    
 
     return board
 
@@ -336,14 +365,89 @@ class OGSClient(object):
             move = self._convertCoordsToMove(x, y)
             self.addToBoard(move)
 
+    def getNeighbours(self, x, y):
+        ret = []
+        if x > 0:
+            ret.append([x-1, y])
+        if x < 18:
+            ret.append([x+1, y])
+
+        if y > 0:
+            ret.append([x, y-1])
+        if y < 18:
+            ret.append([x, y+1])
+
+        return ret
+
+    def getGroup(self, x, y):
+        if not (0 <= x < 19 and 0 <= y < 19):
+            return None
+
+        col = self.board[y][x]
+        reached = set()
+        group = []
+        frontier = [[x, y]]
+        liberties = 0
+
+        while len(frontier) > 0:
+            # Get the next intersection to check
+            [xi, yi] = frontier.pop()
+
+            # If we've already been here, stop
+            if (xi, yi) in reached:
+                continue
+
+            # Mark that we've reached it
+            reached.add((xi, yi))
+
+            # If it's blank, add a liberty
+            if self.board[yi][xi] == 0:
+                liberties += 1
+
+            # If it's the right colour, add to the group and iterate
+            if self.board[yi][xi] == col:
+                group.append([xi, yi])
+
+                n_list = self.getNeighbours(xi, yi)
+                for [xn, yn] in n_list:
+                    frontier.append([xn, yn])
+
+        return [group, liberties]
+
+    # Check if a single intersection has val
+    # Set val = 0 for empty check
+    def checkBoardValue(self, x, y, val):
+        if 0 <= x < 19 and 0 <= y < 19:
+            return self.board[y][x] == val
+        else:
+            return False
+
     # Add a move to the board
     # Move is formatted like "cd" (ie: [a-s][a-s])
     def addToBoard(self, move):
+        print(move)
         (x, y) = self._convertMoveToCoords(move)
 
-        if x < 19 and y < 19:
+        # Ignore passes
+        if 0 <= x < 19 and 0 <= y < 19:
+            # Check for captured groups
+            n_list = self.getNeighbours(x, y)
+
+            for [xn, yn] in n_list:
+                # Can't capture own stones
+                if self.board[yn][xn] == self.next_color:
+                    continue
+
+                # Check if opposing group has 1 liberty
+                [group, liberties] = self.getGroup(xn, yn)
+                if liberties == 1:
+                    print(group)
+                    for [xi, yi] in group:
+                        self.board[yi][xi] = 0  
+
             self.board[y][x] = self.next_color
         self.next_color = -self.next_color
+
 
     # Attempt to play a move
     def playMove(self, x, y):
