@@ -82,7 +82,7 @@ def detectBoardCircles(img):
     
 
     # Blur the image instead
-    blur_size = 20*4
+    blur_size = 20*8
     blur_kernel = np.ones((blur_size, blur_size)) / (blur_size ** 2)
     blurred = cv2.filter2D(gray, -1, blur_kernel)
 
@@ -98,16 +98,16 @@ def detectBoardCircles(img):
     move = 0
     white = np.clip( diff-move, 0, 255).astype(np.uint8)
     black = np.clip(-diff+move, 0, 255).astype(np.uint8)
-    #cv2.imshow("White", white)
-    #cv2.imshow("Black", black)
+    cv2.imshow("White", white)
+    cv2.imshow("Black", black)
     
     # Threshold
     #_, white_thresh = cv2.threshold(white, 0, 255, cv2.THRESHESH_BINARY | cv2.THRESH_OTSU)
     #_, black_thresh = cv2.threshold(black, 30, 255, cv2.THRESH_BINARY)
     _, black_thresh = cv2.threshold(black, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
     _, white_thresh = cv2.threshold(white, 50, 255, cv2.THRESH_BINARY)
-    #cv2.imshow("White Thresh", white_thresh)
-    #cv2.imshow("Black Thresh", black_thresh)
+    cv2.imshow("White Thresh", white_thresh)
+    cv2.imshow("Black Thresh", black_thresh)
     
     # Clean up images
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
@@ -132,7 +132,8 @@ def detectBoardCircles(img):
     black_clean = black_opened_2
     #cv2.imshow("Black Opened", black_opened)
     #cv2.imshow("Black Closed", black_closed)
-    #cv2.imshow("White Mask", white_clean)
+    cv2.imshow("White Mask", white_clean)
+    cv2.imshow("Black Mask", black_clean)
 
     # Combine
     mask = cv2.bitwise_or(black_clean, white_clean)
@@ -352,20 +353,33 @@ class OGSClient(object):
 
     # Get a message from the real-time client
     def getRealTimeMessage(self):
-        line = self.process.stdout.readline().rstrip()
+        line = self.process.stdout.readline().rstrip().decode('utf-8')
         print(line)
-        if line.startswith(b".") or line.startswith(b"connected"):
+        if line.startswith(".") or line.startswith("connected"):
             return None
         else:
             return line
 
 def findAndPlayMove(client, online_board, local_board):
     # Find differences between boards
-    # If local board doesn't have 1 added stone, fail
-    # Try to play the 1 added stone
-    # If there's an error, tell the user
+    num_new_stones = 0
+    new_move = None
+    for y in range(19):
+        for x in range(19):
+            local_stone = local_board[y][x]
+            online_stone = online_board[y][x]
+            if local_stone != 0 and online_stone == 0:
+                new_move = [x, y]
+                num_new_stones += 1
 
-    client.playMove(4, 4)
+    # If local board doesn't have 1 added stone, fail
+    if num_new_stones != 1:
+        print("Warning: tried to play move with %d new stones on board (expected 1)" % num_new_stones)
+        return
+
+    # Try to play the 1 added stone
+    [x, y] = new_move
+    client.playMove(x, y)
 
 def play(game_id):
     # Connect to client
@@ -383,7 +397,8 @@ def play(game_id):
     calib_points = np.array(CALIBRATION_DATA, dtype = "float32")
 
     # Board states: 
-    online_board = ogs_client.readBoard()
+    ogs_client.readBoard()
+    online_board = ogs_client.board
     local_board = None
 
     while True:

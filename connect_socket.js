@@ -64,7 +64,13 @@ rl.on('close', function(){
 
 // For debugging
 function println(msg) {
-    process.stdout.write(msg + "\n");
+    try {
+        process.stdout.write(msg + "\n");
+    }
+    catch (error) {
+        // The Python program must have closed
+        process.exit();
+    }
 }
 
 function printerr(msg) {
@@ -96,7 +102,7 @@ function finishConnect() {
 
     setInterval(function(){
         println(".");
-    }, 100);
+    }, 200);
 }
 
 // Play a move encoded like "dc"
