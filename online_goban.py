@@ -1,3 +1,4 @@
+# online_goban.py
 # Main program for Online Goban
 import argparse
 
@@ -8,12 +9,13 @@ import traceback
 
 # Main function for playing game
 def main_play(args):
-    print("Playing game at " + args.url)
-    play(args.url)
+    print("Playing game at " + args.game_id)
+    play(args.game_id)
 
 # Calibration controller
+# Future work: add automatic calibration
 def main_calibrate(args):
-    print("Calibrating camera and projector")
+    print("Calibrating camera")
     calibrate()
     
 
@@ -28,7 +30,7 @@ if __name__ == "__main__":
         description = 'Connect to a live game on online-go.com'
     )
     main_parser.set_defaults(cmd=main_play)
-    main_parser.add_argument('url', help = 'Game URL (online-go.com/game/<game_id>)')
+    main_parser.add_argument('game_id', help = 'ID of game (from URL online-go.com/game/<game_id>)')
     
     # Set up parser for 'calibrate'
     calibrate_parser = subparsers.add_parser('calibrate')
@@ -40,7 +42,11 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     try:
+        # Try to start program
         args.cmd(args)
-    except AttributeError as e: 
+    except AttributeError as e:
+        # Probably used invalid command line arguments 
         parser.print_help()
+
+        # Debugging help: print any exceptions
         traceback.print_exc()

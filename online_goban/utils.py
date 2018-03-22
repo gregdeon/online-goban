@@ -1,4 +1,6 @@
-# Utilities that are helpful in several modules
+# utils.py
+# Utilities that may be helpful in several modules
+
 import cv2
 import numpy as np
 
@@ -19,7 +21,7 @@ def connectToCamera(cam_id, gain=None, autofocus=True):
         
     return cam
 
-# Constants for drawing
+# Constants for drawing board
 # Access like board_fills[current][prev]
 board_fills = {
     # Empty
@@ -114,7 +116,7 @@ def drawBoard(board, prev_board=None):
     return img_board
     imshow("Board", img_board)
 
-# Pretty-print the board    
+# Pretty-print the board to the console
 def printBoard(board):
     for y in range(19):
         str = ""

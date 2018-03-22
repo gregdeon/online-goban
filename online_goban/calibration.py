@@ -1,22 +1,23 @@
-# Functions for calibration
+# calibration.py
+# Functions for calibrating camera to board position
 import cv2
 import numpy as np
 
-from scipy.spatial import distance as dist
 from online_goban.utils import *
-from online_goban.settings import *
+from online_goban.detect_board import *
+import online_goban.settings as settings
 
 # Calibrate the camera by finding the Go board
 def calibrate():
     # Connect to camera
     cam = connectToCamera(
-        CAM_ID,
-        CAM_GAIN,
-        CAM_AUTOFOCUS
+        settings.CAM_ID,
+        settings.CAM_GAIN,
+        settings.CAM_AUTOFOCUS
     )
 
+    # Wait until spacebar
     img = None
-
     while True: 
         # Take a picture
         ret, img = cam.read()
@@ -30,27 +31,23 @@ def calibrate():
         if key == ord(' '):
             break
 
+    # Done taking pictures - release everything now
     cam.release()
     cv2.destroyAllWindows()
-
 
     # Find the four corners of the board
     corners = findCorners(img)
 
-    # Sort them
+    # Print calibration data
     corners_ordered = order_points(corners)
-
-    # Save the points into a file
-    # TODO: just print for now?
     print("Corners: ")
     for corner in corners_ordered:
         x = corner[0]
         y = corner[1]
         print("    [%d, %d]," % (x, y))
-#        print(corner)
     print("Copy corners into CALIBRATION_DATA in settings.py")
 
-# Shared global variable for corners
+# Shared global variables for corner selection
 calibration_corners = []
 mouse_pos = (0, 0)
 
@@ -84,12 +81,10 @@ def findCorners(img):
             if i == 0 or i == len(calibration_corners) - 1:
                 cv2.line(img_clone, (x, y), mouse_pos, (0, 0, 255), 1)
 
-
-        
         # Show our progress
         cv2.imshow("Calibration", img_clone)
 
-        # Show zoom too
+        # Show zoomed version too
         roi_size_in = 20
         roi_size_out = 200
         (img_h, img_w, _) = np.shape(img_clone)
@@ -111,35 +106,7 @@ def findCorners(img):
 
     return np.array(calibration_corners)
 
-# Taken from 
-# pyimagesearch.com/2016/03/21/ordering-coordinates-clockwise-with-python-and-opencv/
-def order_points(pts):
- # sort the points based on their x-coordinates
- xSorted = pts[np.argsort(pts[:, 0]), :]
- 
- # grab the left-most and right-most points from the sorted
- # x-roodinate points
- leftMost = xSorted[:2, :]
- rightMost = xSorted[2:, :]
- 
- # now, sort the left-most coordinates according to their
- # y-coordinates so we can grab the top-left and bottom-left
- # points, respectively
- leftMost = leftMost[np.argsort(leftMost[:, 1]), :]
- (tl, bl) = leftMost
- 
- # now that we have the top-left coordinate, use it as an
- # anchor to calculate the Euclidean distance between the
- # top-left and right-most points; by the Pythagorean
- # theorem, the point with the largest distance will be
- # our bottom-right point
- D = dist.cdist(tl[np.newaxis], rightMost, "euclidean")[0]
- (br, tr) = rightMost[np.argsort(D)[::-1], :]
- 
- # return the coordinates in top-left, top-right,
- # bottom-right, and bottom-left order
- return np.array([tl, tr, br, bl], dtype="float32")
-
+# Handle a mouse movement or click event
 def handleCalibrationClick(event, x, y, flags, params):
     global calibration_corners
     global mouse_pos
@@ -147,19 +114,3 @@ def handleCalibrationClick(event, x, y, flags, params):
     if event == cv2.EVENT_LBUTTONDOWN:
         calibration_corners.append([x, y])
     mouse_pos = (x, y)
-
-def test():
-    cam = connectToCamera(1, gain=-8.0, autofocus=False)
-    cv2.namedWindow("Raw", cv2.WND_PROP_FULLSCREEN)
-    cv2.setWindowProperty("Raw",cv2.WND_PROP_FULLSCREEN,cv2.WINDOW_FULLSCREEN)
-
-    while True:
-        ret, img = cam.read()
-        img = cv2.flip(img, 1)
-        cv2.imshow("Raw", img)
-        key = cv2.waitKey(1000 // 60)
-        if key == 27:
-            break
-
-    cv2.destroyAllWindows()
-    cam.release()
