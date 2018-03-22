@@ -1,0 +1,23 @@
+{
+  "name": "online-goban-js-client",
+  "version": "1.0.0",
+  "description": "JS client for Online Goban. Handles Socket.IO communication.",
+  "main": "connect_socket.js",
+  "dependencies": {
+    "socket.io": "^2.0.4"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gregdeon/online-goban.git"
+  },
+  "author": "Greg d'Eon",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gregdeon/online-goban/issues"
+  },
+  "homepage": "https://github.com/gregdeon/online-goban#readme"
+}

@@ -1,0 +1,5 @@
+numpy==1.13.1+mkl
+oauthlib==2.0.6
+opencv-python==3.4.0.12
+scipy==0.19.1
+requests-oauthlib==0.8.0
