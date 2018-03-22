@@ -1,3 +1,13 @@
+# Project specifics
+# Old test images
+images/
+
+# Project reports
+# Bring these back eventually...
+documents/
+
+# Default Python .gitignore below here
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
