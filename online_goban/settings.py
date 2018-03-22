@@ -1,7 +1,7 @@
 # Settings for command line program
 
 # Which camera to use
-CAM_ID = 1
+CAM_ID = 0
 
 # Should the camera auto-focus?
 CAM_AUTOFOCUS = False
@@ -12,8 +12,8 @@ CAM_GAIN = None
 
 # Board position in camera frame
 CALIBRATION_DATA = [
-    [28, 76],
-    [432, 11],
-    [496, 335],
-    [203, 331],
+    [82, 94],
+    [455, 39],
+    [500, 423],
+    [193, 403],
 ]

@@ -4,9 +4,6 @@
 // dc
 // stdout will show moves played
 
-// Authentication info
-var ogs_auth = require('./ogs_auth');
-
 // Socket.IO library
 var io = require('socket.io-client');
 

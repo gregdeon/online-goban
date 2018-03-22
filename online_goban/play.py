@@ -11,7 +11,6 @@ import subprocess
 from online_goban.utils import *
 from online_goban.settings import *
 from online_goban.ogs_auth import *
-import online_goban.asyncproc as asyncproc
 
 debug = True
 
@@ -69,6 +68,99 @@ def findAverageColourPoint(img, x, y, radius):
     mask = (ox**2 + oy**2 <= radius**2).astype(np.uint8)
     
     return cv2.mean(roi, mask=mask)
+
+def detectBoardSpirals(img):
+    # Get grayscale image
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    
+    # Find bright and dark portions of image
+    mid = np.average(gray)
+    diff = gray.astype(np.int32) - mid
+    
+
+    # Blur the image instead
+    blur_size = 20*8
+    blur_kernel = np.ones((blur_size, blur_size)) / (blur_size ** 2)
+    blurred = cv2.filter2D(gray, -1, blur_kernel)
+
+    blurred_rgb = cv2.filter2D(img, -1, blur_kernel)
+    #cv2.imshow("Blurred RGB", blurred_rgb)
+    #cv2.imshow("Blurred", blurred)
+    #extremes = np.abs(gray.astype(np.int32) - mid).astype(np.uint8)
+    #_, ext_thresh = cv2.threshold(extremes, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    
+    diff = gray.astype(np.int32) - blurred
+    cv2.imshow("Diff", diff)
+
+    #diff_white 
+
+    _, diff_white = cv2.threshold(diff.astype(np.int16), 0, 255, cv2.THRESH_TOZERO)
+    _, diff_black = cv2.threshold((-diff).astype(np.int16), 0, 255, cv2.THRESH_TOZERO)
+    #_, diff_black = cv2.threshold(-diff, 0, 255, cv2.THRESH_BINARY)
+    cv2.imshow("Diff White", diff_white.astype(np.uint8))
+    cv2.imshow("Diff Black", diff_black.astype(np.uint8))
+
+    # Make a board array
+    board = np.zeros((19, 19))
+
+    # Look through masks
+    spiral_rad = 4
+    for y in range(19):
+        for x in range(19):
+            # Get ROIs
+            center_x = 11 + 20*x
+            center_y = 11 + 20*y
+
+            pix_list = []
+
+            # Spiral
+            num_angles = 64
+            for i in range(num_angles):
+                #rad = i / num_angles * spiral_rad
+                rad = spiral_rad
+                theta = (i / num_angles + 0.125) * 2 * np.pi 
+                xi = int(center_x + rad * np.cos(theta))
+                yi = int(center_y + rad * np.sin(theta))
+
+                pix_list.append(img[yi, xi])
+
+            pix_list = np.array(pix_list).astype(np.float32)
+
+            # Get averages
+            avg_pix = np.average(pix_list)
+
+            # Get differences
+
+            pix_diff = np.diff(pix_list, axis=0)
+            pix_diff_total = np.sum(np.abs(pix_diff), axis=1)
+            diff_sum = np.sum(pix_diff_total)
+
+
+            print(x, y, avg_pix, diff_sum)    
+#            print(pix_list)
+#            print(pix_diff)
+#            print(pix_diff_total)
+#            print(diff_sum)
+
+
+            # Get zero-crossings
+            zero_crossings = np.sum(np.diff(np.sign(pix_list)) != 0)
+
+            # If there are too few zero-crossings, this is a stone
+            min_zero_crossings = 4
+            if 0 < x < 18:
+                min_zero_crossings += 2
+            if 0 < y < 18:
+                min_zero_crossings += 2
+
+            if zero_crossings < min_zero_crossings:
+                # Mark as stone
+                if avg_pix > 0:
+                    board[y][x] = -1
+                else:
+                    board[y][x] = 1
+
+    return board
 
 # Thanks to https://www.pyimagesearch.com/2014/07/21/detecting-circles-images-using-opencv-hough-circles/ for circle detection code
 def detectBoardCircles(img):
@@ -298,7 +390,7 @@ class OGSClient(object):
 
         # Also, start running the real-time client
         self.process = subprocess.Popen(
-            'node ./connect_socket',
+            'node ./js/connect_socket',
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE
         )
