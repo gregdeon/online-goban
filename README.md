@@ -3,6 +3,8 @@ Online Goban uses a single webcam and an unmodified Go set to play games on the 
 
 At a high level, this program does two things. First, it detects stone positions on a Go board using a simple computer vision pipeline. Second, it connects to the Online Go Server API to submit moves and show the opponent's moves.
 
+Note that this package has two separate programs: a high-level Python command-line program that handles the computer vision, and a standalone Node.js program that connects to the OGS API. For developers, see `js/README.md` for a description of the Node.js program.
+
 # Setup
 ## Installation
 This package uses Python 3 and Node.js. Required packages are listed in `requirements.txt` (Python) and `js/package.json` (Javascript).
