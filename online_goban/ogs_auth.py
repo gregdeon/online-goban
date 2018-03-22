@@ -18,7 +18,7 @@ OGS_PASSWORD = "your_password"
 # window.data.get('config.user').id
 OGS_USER_ID = -1
 
-# Authentication token for real-time API
+# Authentication key for real-time API
 # This seems to be undocumented; can get from browser with
 # From window.data.get('config.chat_auth')
 OGS_USER_AUTH = "abcdef01234567890123456789012345"
